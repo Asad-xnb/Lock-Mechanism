@@ -1,34 +1,55 @@
-import nmap
+import subprocess
+import platform
+import time
 import os
 
-# def is_device_present(ip_range, device_ip):
-#     nm = nmap.PortScanner()
-#     nm.scan(hosts=ip_range, arguments='-sn')
+# def is_device_present(device_ip):
+#     command = f"ping -c 1 -w 1000 {device_ip}"
+#     try:
+#         result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#         print(result.returncode == 0)
+#         return result.returncode == 0
+#     except subprocess.CalledProcessError:
+#         return False
 
-#     for host in nm.all_hosts():
-#         if host == device_ip:
-#             return True
-#     return False
+def is_device_present(device_ip, timeout=1000):
+    """Checks if a device is reachable on the network using ping.
 
-# def lock_if_device_not_present(ip_range, device_ip):
-#     if not is_device_present(ip_range, device_ip):
-#         # Add a delay or prompt for confirmation before locking (optional)
-#         os.system("rundll32.exe user32.dll, LockWorkStation")  # This line locks the PC
-#     else:
-#         print("Device is present on the network.")
+    Args:
+        device_ip (str): The IP address of the device to check.
+        timeout (int, optional): The maximum time (in milliseconds) to wait for a response. Defaults to 1000.
 
-# # Example usage
-# network_range = '192.168.1.0/24'
-# specific_device_ip = '192.168.1.100'  # Change this to the IP address of the specific device you want to check for
-# lock_if_device_not_present(network_range, specific_device_ip)
+    Returns:
+        bool: True if the device is reachable, False otherwise.
+    """
+    command = ["ping", "-c", "1", "-W", str(timeout // 1000), device_ip]  # Adjust timeout to seconds
+    try:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=timeout/1000)
+        if result.returncode == 0 and result.stdout.decode().startswith("PING"):
+            return True
+        else:
+            return False
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return False
+    except Exception:  
+        return False
 
 
-def scan_network(ip_range):
-    nm = nmap.PortScanner()
-    nm.scan(hosts=ip_range, arguments='-sn')
 
-    for host in nm.all_hosts():
-        print(f"Host: {host} {'(' + nm[host].hostname() + ')' if 'hostname' in nm[host] else ''} is {'up' if nm[host].state() == 'up' else 'down'}")
+specific_device_ip = '192.168.1.9'
 
-# Example usage
-scan_network('192.168.1.1/24')  # Replace with your network range
+while True:
+    if not is_device_present(specific_device_ip):
+        if platform.system() == 'Windows':
+            os.system("rundll32.exe user32.dll, LockWorkStation") 
+            break
+        elif platform.system() == 'Linux':
+            os.system('xscreensaver-command -activate') # add -lock flag to lock the screen 
+            print("Device is not present")
+        else:
+            print("Unsupported operating system.")
+            break
+    else:
+        os.system('xscreensaver-command -deactivate')
+        print("Device is present")
+    time.sleep(1) 
